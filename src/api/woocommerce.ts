@@ -1,4 +1,10 @@
-import type { BrandOption, ParsedAttribute, WooConfig } from '../types/product';
+import type {
+  BrandOption,
+  GenderOption,
+  ParsedAttribute,
+  ProductCategoryOption,
+  WooConfig,
+} from '../types/product';
 import { isColorAttribute, parseAttributeValues } from '../types/product';
 
 interface WcImage {
@@ -13,6 +19,7 @@ interface WcProductPayload {
   description?: string;
   regular_price?: string;
   images?: WcImage[];
+  categories?: { id: number }[];
   meta_data?: { key: string; value: string }[];
   attributes?: {
     id?: number;
@@ -47,6 +54,13 @@ interface WcAttributeTerm {
   slug: string;
 }
 
+interface WcCategory {
+  id: number;
+  name: string;
+  slug: string;
+  parent: number;
+}
+
 interface WpTerm {
   id: number;
   name: string;
@@ -65,6 +79,10 @@ interface WpErrorResponse {
 
 const BRAND_TAXONOMIES = ['product_brand', 'pwb-brand', 'yith_product_brand', 'brand'];
 const BRAND_NAME_PATTERN = /brand|marque/i;
+const GENDER_LABELS: Record<GenderOption, string> = {
+  homme: 'Homme',
+  femme: 'Femme',
+};
 const MAX_VARIATIONS = 100;
 const VARIATION_BATCH_SIZE = 25;
 
@@ -214,6 +232,23 @@ export async function fetchBrands(config: WooConfig): Promise<BrandOption[]> {
   return brands.sort((a, b) => a.name.localeCompare(b.name, 'fr'));
 }
 
+export async function fetchProductCategories(config: WooConfig): Promise<ProductCategoryOption[]> {
+  const categories = await fetchAllPages((page) =>
+    wcFetch<WcCategory[]>(
+      config,
+      `/products/categories?per_page=100&page=${page}&hide_empty=false`,
+    ),
+  );
+
+  return categories
+    .map((category) => ({
+      id: category.id,
+      name: category.name,
+      slug: category.slug,
+    }))
+    .sort((a, b) => a.name.localeCompare(b.name, 'fr'));
+}
+
 export async function uploadImage(
   config: WooConfig,
   file: File,
@@ -337,6 +372,38 @@ function buildBrandPayload(brand: BrandOption | null): Pick<WcProductPayload, 'b
   };
 }
 
+async function buildCategoryPayload(
+  config: WooConfig,
+  gender: GenderOption[],
+  categoryIds: number[],
+): Promise<Pick<WcProductPayload, 'categories'>> {
+  if (gender.length === 0 && categoryIds.length === 0) return {};
+
+  const selectedCategoryNames = gender.map((value) => GENDER_LABELS[value]);
+  const categories = selectedCategoryNames.length > 0 ? await fetchProductCategories(config) : [];
+
+  const matchedCategories = selectedCategoryNames.map((name) => {
+    const category = categories.find(
+      (item) => item.name.trim().toLowerCase() === name.toLowerCase(),
+    );
+    if (!category) {
+      throw new Error(
+        `La catégorie produit "${name}" est introuvable dans WooCommerce. Vérifiez qu'elle existe dans Product categories.`,
+      );
+    }
+    return { id: category.id };
+  });
+
+  const selectedCategories = categoryIds.map((id) => ({ id }));
+  const uniqueCategories = [...matchedCategories, ...selectedCategories].filter(
+    (category, index, all) => all.findIndex((item) => item.id === category.id) === index,
+  );
+
+  return {
+    categories: uniqueCategories,
+  };
+}
+
 function resolveVariationImage(
   combo: string[],
   attributes: ParsedAttribute[],
@@ -359,11 +426,14 @@ export async function createSimpleProduct(
     sku: string;
     description: string;
     brand: BrandOption | null;
+    gender: GenderOption[];
+    categoryIds: number[];
     regularPrice: string;
     images?: WcImage[];
   },
 ): Promise<{ id: number; permalink: string }> {
   const brandPayload = buildBrandPayload(data.brand);
+  const categoryPayload = await buildCategoryPayload(config, data.gender, data.categoryIds);
 
   const payload: WcProductPayload = {
     name: data.name,
@@ -372,7 +442,10 @@ export async function createSimpleProduct(
     description: data.description || undefined,
     regular_price: data.regularPrice,
     images: data.images,
-    ...brandPayload,
+    categories: categoryPayload.categories,
+    brands: brandPayload.brands,
+    meta_data: brandPayload.meta_data,
+    attributes: brandPayload.attributes,
   };
 
   const product = await wcFetch<{ id: number; permalink: string }>(config, '/products', {
@@ -390,6 +463,8 @@ export async function createVariableProduct(
     sku: string;
     description: string;
     brand: BrandOption | null;
+    gender: GenderOption[];
+    categoryIds: number[];
     regularPrice: string;
     images?: WcImage[];
     attributes: ParsedAttribute[];
@@ -397,6 +472,7 @@ export async function createVariableProduct(
   },
 ): Promise<{ id: number; permalink: string; variationCount: number }> {
   const brandPayload = buildBrandPayload(data.brand);
+  const categoryPayload = await buildCategoryPayload(config, data.gender, data.categoryIds);
   const brandAttributes = brandPayload.attributes ?? [];
   const defaultImage = data.images?.[0];
 
@@ -406,6 +482,7 @@ export async function createVariableProduct(
     sku: data.sku || undefined,
     description: data.description || undefined,
     meta_data: brandPayload.meta_data,
+    categories: categoryPayload.categories,
     brands: brandPayload.brands,
     images: data.images,
     attributes: [
