@@ -1,13 +1,19 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   createSimpleProduct,
   createVariableProduct,
+  fetchProductCategories,
   getActiveAttributes,
   uploadColorImages,
   uploadImage,
   uploadImages,
 } from '../api/woocommerce';
-import type { ProductFormData, WooConfig } from '../types/product';
+import type {
+  GenderOption,
+  ProductCategoryOption,
+  ProductFormData,
+  WooConfig,
+} from '../types/product';
 import { AttributeFields } from './AttributeFields';
 import { BrandSelect } from './BrandSelect';
 import { ImageDropzone } from './ImageDropzone';
@@ -18,6 +24,8 @@ const initialForm: ProductFormData = {
   sku: '',
   description: '',
   brand: null,
+  gender: [],
+  categoryIds: [],
   regularPrice: '',
   showcaseImage: null,
   planImages: [],
@@ -31,6 +39,9 @@ interface ProductFormProps {
 
 export function ProductForm({ config }: ProductFormProps) {
   const [form, setForm] = useState<ProductFormData>(initialForm);
+  const [categories, setCategories] = useState<ProductCategoryOption[]>([]);
+  const [categoriesLoading, setCategoriesLoading] = useState(false);
+  const [categoriesError, setCategoriesError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(
     null,
@@ -38,6 +49,54 @@ export function ProductForm({ config }: ProductFormProps) {
 
   const update = <K extends keyof ProductFormData>(key: K, value: ProductFormData[K]) => {
     setForm((prev) => ({ ...prev, [key]: value }));
+  };
+
+  useEffect(() => {
+    if (!config.siteUrl || !config.consumerKey || !config.consumerSecret) {
+      setCategories([]);
+      return;
+    }
+
+    let cancelled = false;
+    setCategoriesLoading(true);
+    setCategoriesError(null);
+
+    fetchProductCategories(config)
+      .then((items) => {
+        if (!cancelled) setCategories(items);
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          setCategoriesError(
+            err instanceof Error ? err.message : 'Impossible de charger les catégories.',
+          );
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setCategoriesLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [config.siteUrl, config.consumerKey, config.consumerSecret]);
+
+  const toggleGender = (gender: GenderOption) => {
+    setForm((prev) => ({
+      ...prev,
+      gender: prev.gender.includes(gender)
+        ? prev.gender.filter((item) => item !== gender)
+        : [...prev.gender, gender],
+    }));
+  };
+
+  const toggleCategory = (categoryId: number) => {
+    setForm((prev) => ({
+      ...prev,
+      categoryIds: prev.categoryIds.includes(categoryId)
+        ? prev.categoryIds.filter((id) => id !== categoryId)
+        : [...prev.categoryIds, categoryId],
+    }));
   };
 
   const validate = (): string | null => {
@@ -81,6 +140,8 @@ export function ProductForm({ config }: ProductFormProps) {
           sku: form.sku.trim(),
           description: form.description.trim(),
           brand: form.brand,
+          gender: form.gender,
+          categoryIds: form.categoryIds,
           regularPrice: form.regularPrice.trim(),
           images,
         });
@@ -95,6 +156,8 @@ export function ProductForm({ config }: ProductFormProps) {
           sku: form.sku.trim(),
           description: form.description.trim(),
           brand: form.brand,
+          gender: form.gender,
+          categoryIds: form.categoryIds,
           regularPrice: form.regularPrice.trim(),
           images,
           attributes,
@@ -128,6 +191,12 @@ export function ProductForm({ config }: ProductFormProps) {
     activeAttributes.length === 0
       ? 'simple'
       : `variable (${activeAttributes.length} attribut${activeAttributes.length > 1 ? 's' : ''})`;
+  const categoryOptions = categories.filter(
+    (category) => !['homme', 'femme'].includes(category.name.trim().toLowerCase()),
+  );
+  const selectedCategoryNames = categoryOptions
+    .filter((category) => form.categoryIds.includes(category.id))
+    .map((category) => category.name);
 
   return (
     <form className="product-form" onSubmit={handleSubmit}>
@@ -172,6 +241,55 @@ export function ProductForm({ config }: ProductFormProps) {
           value={form.description}
           onChange={(e) => update('description', e.target.value)}
         />
+      </div>
+
+      <div className="field">
+        <label>Filtre boutique</label>
+        <div className="checkbox-group">
+          <label className="checkbox-label">
+            <input
+              type="checkbox"
+              checked={form.gender.includes('homme')}
+              onChange={() => toggleGender('homme')}
+            />
+            Homme
+          </label>
+          <label className="checkbox-label">
+            <input
+              type="checkbox"
+              checked={form.gender.includes('femme')}
+              onChange={() => toggleGender('femme')}
+            />
+            Femme
+          </label>
+        </div>
+        <details className="category-dropdown">
+          <summary className="category-dropdown__summary">
+            {categoriesLoading
+              ? 'Chargement des catégories...'
+              : selectedCategoryNames.length > 0
+                ? selectedCategoryNames.join(', ')
+                : 'Autres catégories...'}
+          </summary>
+          <div className="category-dropdown__menu">
+            {categoryOptions.length === 0 ? (
+              <span className="category-dropdown__empty">Aucune catégorie disponible</span>
+            ) : (
+              categoryOptions.map((category) => (
+                <label key={category.id} className="checkbox-label category-dropdown__option">
+                  <input
+                    type="checkbox"
+                    checked={form.categoryIds.includes(category.id)}
+                    onChange={() => toggleCategory(category.id)}
+                    disabled={categoriesLoading}
+                  />
+                  {category.name}
+                </label>
+              ))
+            )}
+          </div>
+        </details>
+        {categoriesError && <span className="hint hint--error">{categoriesError}</span>}
       </div>
 
       <div className="field">

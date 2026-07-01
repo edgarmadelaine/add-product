@@ -13,11 +13,15 @@ export interface ProductAttribute {
   colorImages?: Record<string, { showcase: File | null; plans: File[] }>;
 }
 
+export type GenderOption = 'homme' | 'femme';
+
 export interface ProductFormData {
   name: string;
   sku: string;
   description: string;
   brand: BrandOption | null;
+  gender: GenderOption[];
+  categoryIds: number[];
   regularPrice: string;
   showcaseImage: File | null;
   planImages: File[];
@@ -37,6 +41,12 @@ export interface BrandOption {
   taxonomy?: string;
   attributeId?: number;
   attributeName?: string;
+}
+
+export interface ProductCategoryOption {
+  id: number;
+  name: string;
+  slug: string;
 }
 
 export function isColorAttribute(name: string): boolean {
