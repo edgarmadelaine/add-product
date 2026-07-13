@@ -26,6 +26,8 @@ const initialForm: ProductFormData = {
   brand: null,
   gender: [],
   categoryIds: [],
+  visibility: 'public',
+  status: 'publish',
   regularPrice: '',
   showcaseImage: null,
   planImages: [],
@@ -142,6 +144,8 @@ export function ProductForm({ config }: ProductFormProps) {
           brand: form.brand,
           gender: form.gender,
           categoryIds: form.categoryIds,
+          visibility: form.visibility,
+          status: form.status,
           regularPrice: form.regularPrice.trim(),
           images,
         });
@@ -158,6 +162,8 @@ export function ProductForm({ config }: ProductFormProps) {
           brand: form.brand,
           gender: form.gender,
           categoryIds: form.categoryIds,
+          visibility: form.visibility,
+          status: form.status,
           regularPrice: form.regularPrice.trim(),
           images,
           attributes,
@@ -192,7 +198,8 @@ export function ProductForm({ config }: ProductFormProps) {
       ? 'simple'
       : `variable (${activeAttributes.length} attribut${activeAttributes.length > 1 ? 's' : ''})`;
   const categoryOptions = categories.filter(
-    (category) => !['homme', 'femme'].includes(category.name.trim().toLowerCase()),
+    (category) =>
+      !['homme', 'femme', 'unisexe', 'enfant'].includes(category.name.trim().toLowerCase()),
   );
   const selectedCategoryNames = categoryOptions
     .filter((category) => form.categoryIds.includes(category.id))
@@ -262,6 +269,22 @@ export function ProductForm({ config }: ProductFormProps) {
             />
             Femme
           </label>
+          <label className="checkbox-label">
+            <input
+              type="checkbox"
+              checked={form.gender.includes('unisexe')}
+              onChange={() => toggleGender('unisexe')}
+            />
+            Unisexe
+          </label>
+          <label className="checkbox-label">
+            <input
+              type="checkbox"
+              checked={form.gender.includes('enfant')}
+              onChange={() => toggleGender('enfant')}
+            />
+            Enfant
+          </label>
         </div>
         <details className="category-dropdown">
           <summary className="category-dropdown__summary">
@@ -290,6 +313,33 @@ export function ProductForm({ config }: ProductFormProps) {
           </div>
         </details>
         {categoriesError && <span className="hint hint--error">{categoriesError}</span>}
+      </div>
+
+      <div className="field-row">
+        <div className="field">
+          <label>Visibility</label>
+          <label className="switch-label">
+            <input
+              type="checkbox"
+              checked={form.visibility === 'public'}
+              onChange={(e) => update('visibility', e.target.checked ? 'public' : 'private')}
+            />
+            <span className="switch" aria-hidden="true" />
+            {form.visibility === 'public' ? 'Public' : 'Private'}
+          </label>
+        </div>
+        <div className="field">
+          <label>Statut produit</label>
+          <label className="switch-label">
+            <input
+              type="checkbox"
+              checked={form.status === 'publish'}
+              onChange={(e) => update('status', e.target.checked ? 'publish' : 'pending')}
+            />
+            <span className="switch" aria-hidden="true" />
+            {form.status === 'publish' ? 'Published' : 'Pending review'}
+          </label>
+        </div>
       </div>
 
       <div className="field">

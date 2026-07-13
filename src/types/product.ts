@@ -13,7 +13,9 @@ export interface ProductAttribute {
   colorImages?: Record<string, { showcase: File | null; plans: File[] }>;
 }
 
-export type GenderOption = 'homme' | 'femme';
+export type GenderOption = 'homme' | 'femme' | 'unisexe' | 'enfant';
+export type ProductStatusOption = 'publish' | 'pending';
+export type ProductVisibilityOption = 'public' | 'private';
 
 export interface ProductFormData {
   name: string;
@@ -22,6 +24,8 @@ export interface ProductFormData {
   brand: BrandOption | null;
   gender: GenderOption[];
   categoryIds: number[];
+  visibility: ProductVisibilityOption;
+  status: ProductStatusOption;
   regularPrice: string;
   showcaseImage: File | null;
   planImages: File[];

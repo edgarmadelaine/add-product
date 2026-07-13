@@ -3,6 +3,8 @@ import type {
   GenderOption,
   ParsedAttribute,
   ProductCategoryOption,
+  ProductStatusOption,
+  ProductVisibilityOption,
   WooConfig,
 } from '../types/product';
 import { isColorAttribute, parseAttributeValues } from '../types/product';
@@ -15,6 +17,7 @@ interface WcImage {
 interface WcProductPayload {
   name: string;
   type: 'simple' | 'variable';
+  status?: 'publish' | 'pending' | 'private';
   sku?: string;
   description?: string;
   regular_price?: string;
@@ -82,6 +85,8 @@ const BRAND_NAME_PATTERN = /brand|marque/i;
 const GENDER_LABELS: Record<GenderOption, string> = {
   homme: 'Homme',
   femme: 'Femme',
+  unisexe: 'Unisexe',
+  enfant: 'Enfant',
 };
 const MAX_VARIATIONS = 100;
 const VARIATION_BATCH_SIZE = 25;
@@ -372,6 +377,13 @@ function buildBrandPayload(brand: BrandOption | null): Pick<WcProductPayload, 'b
   };
 }
 
+function resolveProductStatus(
+  status: ProductStatusOption,
+  visibility: ProductVisibilityOption,
+): WcProductPayload['status'] {
+  return visibility === 'private' ? 'private' : status;
+}
+
 async function buildCategoryPayload(
   config: WooConfig,
   gender: GenderOption[],
@@ -428,6 +440,8 @@ export async function createSimpleProduct(
     brand: BrandOption | null;
     gender: GenderOption[];
     categoryIds: number[];
+    visibility: ProductVisibilityOption;
+    status: ProductStatusOption;
     regularPrice: string;
     images?: WcImage[];
   },
@@ -438,6 +452,7 @@ export async function createSimpleProduct(
   const payload: WcProductPayload = {
     name: data.name,
     type: 'simple',
+    status: resolveProductStatus(data.status, data.visibility),
     sku: data.sku || undefined,
     description: data.description || undefined,
     regular_price: data.regularPrice,
@@ -465,6 +480,8 @@ export async function createVariableProduct(
     brand: BrandOption | null;
     gender: GenderOption[];
     categoryIds: number[];
+    visibility: ProductVisibilityOption;
+    status: ProductStatusOption;
     regularPrice: string;
     images?: WcImage[];
     attributes: ParsedAttribute[];
@@ -479,6 +496,7 @@ export async function createVariableProduct(
   const payload: WcProductPayload = {
     name: data.name,
     type: 'variable',
+    status: resolveProductStatus(data.status, data.visibility),
     sku: data.sku || undefined,
     description: data.description || undefined,
     meta_data: brandPayload.meta_data,

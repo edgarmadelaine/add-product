@@ -134,6 +134,56 @@
   gap: 0.75rem 1rem;
 }
 
+.switch-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.65rem;
+  width: fit-content;
+  cursor: pointer;
+  color: #1a1a2e;
+}
+
+.switch-label input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.switch {
+  position: relative;
+  width: 2.6rem;
+  height: 1.45rem;
+  border-radius: 999px;
+  background: #c8ced9;
+  transition: background 0.15s;
+}
+
+.switch::after {
+  content: "";
+  position: absolute;
+  top: 0.2rem;
+  left: 0.2rem;
+  width: 1.05rem;
+  height: 1.05rem;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+  transition: transform 0.15s;
+}
+
+.switch-label input:checked + .switch {
+  background: #6c63ff;
+}
+
+.switch-label input:checked + .switch::after {
+  transform: translateX(1.15rem);
+}
+
+.switch-label input:focus-visible + .switch {
+  outline: 2px solid #1a1a2e;
+  outline-offset: 2px;
+}
+
 .category-dropdown {
   margin-top: 0.35rem;
   position: relative;
